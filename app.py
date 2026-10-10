@@ -81,7 +81,8 @@ def require_owner(x_admin_key: str | None) -> None:
 
 
 def current_cycle(conn: sqlite3.Connection) -> sqlite3.Row | None:
-    return conn.execute("SELECT * FROM cycles WHERE status='active' ORDER BY created_at DESC LIMIT 1").fetchone()
+    # Always surface the latest cycle, including halted cycles, so a stop cannot be bypassed implicitly.
+    return conn.execute("SELECT * FROM cycles ORDER BY created_at DESC LIMIT 1").fetchone()
 
 
 def ledger_totals(conn: sqlite3.Connection, cycle_id: str | None = None) -> dict[str, float]:
@@ -197,6 +198,8 @@ def fund(req: FundingRequest, x_admin_key: str | None = Header(default=None)) ->
         if cycle and req.start_new_cycle:
             conn.execute("UPDATE cycles SET status='closed' WHERE id=?", (cycle["id"],))
             cycle = None
+        elif cycle and cycle["status"] == "halted":
+            raise HTTPException(409, "Cycle is halted. Explicitly request start_new_cycle after owner review.")
         if not cycle:
             cycle_id = str(uuid.uuid4())
             conn.execute("INSERT INTO cycles VALUES (?, ?, ?, ?, 'active')", (cycle_id, req.amount, round(req.amount * LOSS_LIMIT_PCT, 2), now()))
