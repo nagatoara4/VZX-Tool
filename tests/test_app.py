@@ -76,8 +76,8 @@ def test_funding_and_proposal_limits():
 
 
 def test_multi_user_accounts_and_ledgers_are_isolated():
-    headers_a = register_and_login("alpha@example.test", "Alpha")
-    headers_b = register_and_login("bravo@example.test", "Bravo")
+    headers_a = register_and_login("alpha@example.com", "Alpha")
+    headers_b = register_and_login("bravo@example.com", "Bravo")
     budget_a = client.post("/api/v1/budget", headers=headers_a, json={"amount": 125})
     budget_b = client.post("/api/v1/budget", headers=headers_b, json={"amount": 75})
     assert budget_a.status_code == 200
@@ -103,7 +103,7 @@ def test_auth_required_for_private_account_data():
 
 
 def test_declared_budget_is_not_spendable_cash():
-    headers = register_and_login("charlie@example.test", "Charlie")
+    headers = register_and_login("charlie@example.com", "Charlie")
     client.post("/api/v1/budget", headers=headers, json={"amount": 200})
     response = client.post("/api/v1/proposals", headers=headers, json={
         "kind": "sample_purchase",
