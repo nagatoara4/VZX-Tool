@@ -1,4 +1,4 @@
-name: Tests
+name: Tests and container smoke test
 
 on:
   push:
@@ -21,3 +21,24 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: pip install -r requirements.txt
       - run: python -m pytest -q
+      - name: Build production container
+        run: docker build --tag vzx-tool:ci .
+      - name: Start container and verify health endpoint
+        shell: bash
+        run: |
+          docker run --detach --name vzx-tool-ci \
+            --publish 127.0.0.1:8000:8000 \
+            --env AUTH_SECRET=ci-only-test-secret-at-least-32-characters \
+            --env ADMIN_API_KEY=ci-only-admin-key \
+            vzx-tool:ci
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8000/health; then
+              echo "Container health check passed."
+              docker rm --force vzx-tool-ci
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs vzx-tool-ci
+          docker rm --force vzx-tool-ci
+          exit 1
