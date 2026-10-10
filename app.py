@@ -16,7 +16,8 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field, field_validator
 from dotenv import load_dotenv
 from platform_api import router as platform_router, init_platform_db
-from agent_worker import init_queue, execution_policy
+from agent_engine import analyze_opportunity, as_dict
+from agent_worker import init_queue, execution_policy, process_one
 
 load_dotenv()
 
@@ -28,7 +29,7 @@ LOSS_LIMIT_PCT = float(os.getenv("LOSS_LIMIT_PCT", "0.30"))
 REINVESTMENT_PCT = float(os.getenv("REINVESTMENT_PCT", "0.80"))
 DEFAULT_ACTION_CAP = float(os.getenv("DEFAULT_ACTION_CAP", "25.00"))
 
-app = FastAPI(title=APP_NAME, version="0.2.0", description="Multi-user risk-controlled commerce control plane. Payment and marketplace execution remain disabled until verified integrations are configured.")
+app = FastAPI(title=APP_NAME, version="0.3.0", description="Multi-user risk-controlled commerce control plane. Payment and marketplace execution remain disabled until verified integrations are configured.")
 app.include_router(platform_router)
 
 
@@ -173,7 +174,7 @@ class DecisionRequest(BaseModel):
 
 @app.get("/")
 def root() -> dict[str, Any]:
-    return {"name": APP_NAME, "version": "0.1.0", "mode": EXECUTION_MODE, "status": "running", "external_execution_connected": False}
+    return {"name": APP_NAME, "version": "0.3.0", "mode": EXECUTION_MODE, "status": "running", "external_execution_connected": False}
 
 
 @app.get("/ui", include_in_schema=False)
@@ -324,6 +325,47 @@ def get_audit(limit: int = 100) -> dict[str, Any]:
     with closing(db()) as conn:
         rows = conn.execute("SELECT event, detail, created_at FROM audit ORDER BY rowid DESC LIMIT ?", (limit,)).fetchall()
     return {"events": [{"event": r["event"], "detail": json.loads(r["detail"]), "created_at": r["created_at"]} for r in rows]}
+
+
+class OpportunityAnalysisRequest(BaseModel):
+    candidates: list[dict[str, Any]] = Field(min_length=1, max_length=100)
+    available_budget: float = Field(gt=0, le=1_000_000)
+    max_order_spend: float = Field(gt=0, le=1_000_000)
+
+
+@app.post("/agent/analyze")
+def analyze_candidates(req: OpportunityAnalysisRequest) -> dict[str, Any]:
+    """Rank supplied candidate data. No external market fetch or purchase is performed."""
+    ranked = [
+        as_dict(analyze_opportunity(
+            item,
+            available_budget=req.available_budget,
+            max_order_spend=req.max_order_spend,
+        ))
+        for item in req.candidates
+    ]
+    ranked.sort(
+        key=lambda item: (
+            item["decision"] == "strong_candidate_requires_authorized_execution",
+            item["score"],
+        ),
+        reverse=True,
+    )
+    return {
+        "mode": "analysis_only",
+        "currency": "USD",
+        "candidates_analyzed": len(ranked),
+        "ranked_opportunities": ranked,
+        "execution_enabled": False,
+        "warning": "Scores depend on supplied data and are not profit guarantees. No live market data was fetched.",
+    }
+
+
+@app.post("/agent/worker/run-once")
+def run_worker_once(x_admin_key: str | None = Header(default=None)) -> dict[str, Any]:
+    """Owner-protected single-task worker trigger; analysis-only, no financial side effects."""
+    require_owner(x_admin_key)
+    return process_one() or {"status": "idle", "message": "No queued tasks."}
 
 
 @app.get("/policy")
