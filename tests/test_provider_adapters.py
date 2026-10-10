@@ -26,3 +26,10 @@ def test_provider_readiness_does_not_claim_live_approval(monkeypatch):
     assert status.configured is False
     assert status.enabled is False
     assert status.missing
+
+
+def test_amazon_catalog_search_disabled_without_opt_in(monkeypatch):
+    from amazon_catalog import AmazonNotReady, search_catalog
+    monkeypatch.setenv("AMAZON_SP_API_ENABLE_READS", "false")
+    with pytest.raises(AmazonNotReady):
+        search_catalog("USB cable")
