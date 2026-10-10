@@ -8,6 +8,7 @@
 
 - FastAPI control plane with an HTML dashboard.
 - Account/session APIs, scoped task queue, proposals, audit records, and budget-cycle primitives.
+- **Simulation ledger:** separate per-user fictional USD cash, idempotent order reservations, simulated settlement, and net-profit calculation; isolated from pending payment requests.
 - Deterministic resale opportunity scoring from candidate data supplied to the API.
 - Owner-protected Amazon SP-API catalog research (read-only, requires approved Amazon credentials and explicit opt-in).
 - RedotPay Connect Open API v2 sandbox checkout creation with RSA request signing.
@@ -21,6 +22,7 @@
 - Opportunity engine: `agent_engine.py`
 - Analysis-only worker and queue: `agent_worker.py`
 - RedotPay sandbox checkout: `redotpay_connect.py`
+- Simulation-only ledger and order lifecycle: `simulation_ledger.py`
 - Amazon read-only catalog connector: `amazon_catalog.py`
 - Provider readiness contracts: `provider_adapters.py`
 - Deployment guide: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)
@@ -76,6 +78,20 @@ GitHub Actions runs:
 4. container startup and `/health` smoke test.
 
 See [the latest Actions runs](https://github.com/nagatoara4/VZX-Tool/actions). A passing CI run validates code tests and the container smoke test; it does **not** prove that RedotPay or Amazon credentials are approved or that a provider-backed sandbox transaction succeeded.
+
+
+## Simulation order workflow
+
+The new `/api/v1/simulation` endpoints let an authenticated user test a full accounting loop without payment credentials or marketplace access:
+
+1. `POST /api/v1/simulation/cash` adds **fictional sandbox cash** using a unique reference.
+2. `POST /api/v1/simulation/orders` reserves the product cost × quantity plus shipping and fee budgets atomically.
+3. `POST /api/v1/simulation/orders/{order_id}/settle` records simulated sale proceeds, actual shipping and fees, releases unused reserve, and computes net profit.
+4. `GET /api/v1/simulation/account` and `GET /api/v1/simulation/orders` report the user's own simulation results.
+
+All routes require the user's bearer token. Records are user-scoped; order reservations use an idempotency key; insufficient balances fail closed. These endpoints are a test harness, **not a funding mechanism**. They must never be used to represent customer deposits, available real funds, actual purchases, or realized business income. Real funding remains pending until a provider callback can be verified and reconciled. Live marketplace buying and selling remain disabled.
+
+Example: with $100 of fictional test cash, reserve $40 product cost + $10 shipping + $5 fees, then settle at a $80 sale price with $8 shipping and $4 fees. The simulated net profit is $28. This is only an accounting demonstration.
 
 ## RedotPay Connect sandbox
 
