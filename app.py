@@ -333,6 +333,22 @@ class OpportunityAnalysisRequest(BaseModel):
     max_order_spend: float = Field(gt=0, le=1_000_000)
 
 
+class AmazonCatalogRequest(BaseModel):
+    keywords: str = Field(min_length=1, max_length=200)
+    limit: int = Field(default=10, ge=1, le=20)
+
+
+@app.post("/agent/research/amazon-catalog")
+def research_amazon_catalog(req: AmazonCatalogRequest, x_admin_key: str | None = Header(default=None)) -> dict[str, Any]:
+    """Owner-only read-only catalog search through an approved Amazon SP-API app."""
+    require_owner(x_admin_key)
+    from amazon_catalog import AmazonNotReady, search_catalog
+    try:
+        return search_catalog(req.keywords, req.limit)
+    except AmazonNotReady as exc:
+        raise HTTPException(503, str(exc)) from exc
+
+
 @app.post("/agent/analyze")
 def analyze_candidates(req: OpportunityAnalysisRequest) -> dict[str, Any]:
     """Rank supplied candidate data. No external market fetch or purchase is performed."""
