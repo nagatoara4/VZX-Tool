@@ -135,3 +135,68 @@ def test_agent_task_queue_is_user_scoped_and_does_not_claim_execution():
     assert own.status_code == 200
     assert own.json()["payload"] == {"period": "today"}
     assert other.status_code == 404
+
+
+
+def test_opportunity_analysis_api_ranks_candidates_without_executing():
+    payload = {
+        "available_budget": 100,
+        "max_order_spend": 50,
+        "candidates": [{
+            "product_id": "api-test-product",
+            "unit_cost": "10",
+            "shipping_per_unit": "2",
+            "marketplace_fee_per_unit": "3",
+            "tax_per_unit": "1",
+            "expected_sale_price": "30",
+            "units": 2,
+            "demand_score": 90,
+            "competition_score": 20,
+            "supplier_reliability": 90,
+            "compliance_risk": 10
+        }]
+    }
+    response = client.post("/agent/analyze", json=payload)
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["currency"] == "USD"
+    assert data["execution_enabled"] is False
+    assert data["ranked_opportunities"][0]["expected_profit_total"] == "28.00"
+
+
+def test_worker_processes_profitability_task_as_analysis_only():
+    headers = register_and_login("worker-analysis@example.com", "Worker Analysis")
+    queued = client.post("/api/v1/tasks", headers=headers, json={
+        "task_type": "profitability_analysis",
+        "payload": {
+            "available_budget": 100,
+            "max_order_spend": 50,
+            "candidates": [{
+                "product_id": "worker-test-product",
+                "unit_cost": 10,
+                "shipping_per_unit": 2,
+                "marketplace_fee_per_unit": 3,
+                "tax_per_unit": 1,
+                "expected_sale_price": 30,
+                "units": 2,
+                "demand_score": 90,
+                "competition_score": 20,
+                "supplier_reliability": 90,
+                "compliance_risk": 10
+            }]
+        }
+    })
+    assert queued.status_code == 202
+    ran = client.post("/agent/worker/run-once", headers=HEADERS)
+    assert ran.status_code == 200, ran.text
+    status = client.get(f"/api/v1/tasks/{queued.json()['id']}", headers=headers)
+    assert status.status_code == 200
+    assert status.json()["status"] == "completed"
+    assert status.json()["result"]["execution"] == "disabled"
+
+
+def test_profit_alert_cannot_claim_unreconciled_profit():
+    from agent_engine import verified_profit_alert
+    import pytest
+    with pytest.raises(ValueError):
+        verified_profit_alert(amount=10, order_id="pending-1", payment_settled=False, costs_reconciled=False)
