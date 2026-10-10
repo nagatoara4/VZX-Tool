@@ -12,7 +12,9 @@ A multi-user commerce-operations control plane with isolated accounts, declared 
 - Default loss-stop policy of 30% of the declared cycle capital.
 - 80% reinvestment policy documented for future accounting integration; not yet automatically applied to verified profits.
 - Product opportunity scoring based on demand, competition, margin, supplier reliability, fulfilment fit and compliance risk.
-- New field-agent engine (`agent_engine.py`) computes all-in unit costs, expected margin/ROI, candidate scores and fail-closed order/loss-limit decisions using decimal money arithmetic.
+- Field-agent engine (`agent_engine.py`) computes all-in unit costs, expected margin/ROI, candidate scores and fail-closed order/loss-limit decisions using decimal money arithmetic.
+- `POST /agent/analyze` ranks up to 100 user-supplied candidates; it does not fetch live market data.
+- Owner-protected `POST /agent/worker/run-once` processes one queued task in analysis-only mode; profitability tasks can rank supplied candidate records, while unsupported live tasks fail closed.
 - Verified-profit alert formatter rejects notifications unless settlement and cost reconciliation are confirmed.
 - Integration readiness registry (`integration_registry.py`) reports missing credentials but deliberately never enables live transactions.
 - Purchase proposal workflow with idempotency keys, approval-required state and per-action cap.
@@ -74,7 +76,7 @@ Amazon integration requires approved official SP-API access and seller authoriza
 
 ## Agent autonomy and safety
 
-The task queue currently stores allowed requests; it does not autonomously fetch market data or execute financial operations. Current branch adds a deterministic opportunity engine and a field-agent architecture guide. The queue still stores tasks; it does not yet run an autonomous marketplace worker. Next stages are verified data connectors, durable worker execution, monitoring/alerts, sandbox testing, and tightly scoped execution permissions. Purchases, ads, refunds, listings, contracts, and external commitments require explicit authorization until their controls are proven.
+The worker can process queued profitability-analysis tasks when the payload contains complete candidate data. It does not autonomously fetch market data or execute financial operations. For local testing, start the app with secure environment variables and call `POST /agent/worker/run-once` with `X-Admin-Key`; one task is processed per call. Current branch adds a deterministic opportunity engine and a field-agent architecture guide. The queue still stores tasks; it does not yet run an autonomous marketplace worker. Next stages are verified data connectors, durable worker execution, monitoring/alerts, sandbox testing, and tightly scoped execution permissions. Purchases, ads, refunds, listings, contracts, and external commitments require explicit authorization until their controls are proven.
 
 ## Tests
 
