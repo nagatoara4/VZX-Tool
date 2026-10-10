@@ -207,3 +207,8 @@ def test_profit_alert_cannot_claim_unreconciled_profit():
     import pytest
     with pytest.raises(ValueError):
         verified_profit_alert(amount=10, order_id="pending-1", payment_settled=False, costs_reconciled=False)
+
+
+def test_audit_log_requires_owner_key():
+    assert client.get("/audit").status_code in (401, 503)
+    assert client.get("/audit", headers=HEADERS).status_code == 200
