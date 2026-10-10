@@ -11,6 +11,10 @@ from redotpay_connect import RedotPayError, create_sandbox_checkout, money_usd, 
 def test_money_usd_validation():
     assert money_usd("12.30") == "12.30"
     with pytest.raises(ValueError):
+        money_usd("0.001")
+    with pytest.raises(ValueError):
+        money_usd("10000.01")
+    with pytest.raises(ValueError):
         money_usd("-1")
     with pytest.raises(ValueError):
         money_usd("NaN")
