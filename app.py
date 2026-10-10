@@ -15,6 +15,8 @@ from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field, field_validator
 from dotenv import load_dotenv
+from platform_api import router as platform_router, init_platform_db
+from agent_worker import init_queue, execution_policy
 
 load_dotenv()
 
@@ -26,7 +28,8 @@ LOSS_LIMIT_PCT = float(os.getenv("LOSS_LIMIT_PCT", "0.30"))
 REINVESTMENT_PCT = float(os.getenv("REINVESTMENT_PCT", "0.80"))
 DEFAULT_ACTION_CAP = float(os.getenv("DEFAULT_ACTION_CAP", "25.00"))
 
-app = FastAPI(title=APP_NAME, version="0.1.0", description="Risk-controlled ecommerce agent control plane. External execution is not connected in this MVP.")
+app = FastAPI(title=APP_NAME, version="0.2.0", description="Multi-user risk-controlled commerce control plane. Payment and marketplace execution remain disabled until verified integrations are configured.")
+app.include_router(platform_router)
 
 
 def now() -> str:
@@ -69,6 +72,8 @@ def init_db() -> None:
 @app.on_event("startup")
 def startup() -> None:
     init_db()
+    init_platform_db()
+    init_queue()
 
 
 def audit(event: str, detail: dict[str, Any]) -> None:
@@ -323,4 +328,4 @@ def get_audit(limit: int = 100) -> dict[str, Any]:
 
 @app.get("/policy")
 def policy() -> dict[str, Any]:
-    return {"execution_mode": EXECUTION_MODE, "loss_limit_pct": LOSS_LIMIT_PCT, "reinvestment_pct": REINVESTMENT_PCT, "per_action_cap": DEFAULT_ACTION_CAP, "external_integrations": [], "automatic_money_movement": False, "notes": ["No payment or marketplace integration is active.", "Set secure authentication before deployment.", "Owner approval is required for proposals."]}
+    return {"execution_mode": EXECUTION_MODE, "loss_limit_pct": LOSS_LIMIT_PCT, "reinvestment_pct": REINVESTMENT_PCT, "per_action_cap": DEFAULT_ACTION_CAP, "external_integrations": [], "automatic_money_movement": False, "agent_policy": execution_policy(), "notes": ["No payment or marketplace integration is active.", "Set secure authentication before deployment.", "Owner approval is required for proposals."]}
