@@ -26,8 +26,8 @@ def init_simulation_db():
           id TEXT PRIMARY KEY,user_id TEXT NOT NULL,product_name TEXT NOT NULL,quantity INTEGER NOT NULL,
           product_cost_cents INTEGER NOT NULL,shipping_budget_cents INTEGER NOT NULL,fee_budget_cents INTEGER NOT NULL,
           reserved_cents INTEGER NOT NULL,status TEXT NOT NULL,sale_price_cents INTEGER,actual_shipping_cents INTEGER,
-          actual_fees_cents INTEGER,net_profit_cents INTEGER,created_at TEXT NOT NULL,settled_at TEXT,
-          UNIQUE(user_id,id));
+          actual_fees_cents INTEGER,net_profit_cents INTEGER,created_at TEXT NOT NULL,settled_at TEXT,idempotency_key TEXT NOT NULL,
+          UNIQUE(user_id,idempotency_key));
         CREATE INDEX IF NOT EXISTS idx_sim_cash_user ON sim_cash_events(user_id,created_at);
         CREATE INDEX IF NOT EXISTS idx_sim_orders_user ON sim_orders(user_id,created_at);
         """)
@@ -98,12 +98,12 @@ def create_order(req:SimOrderRequest,user:dict[str,Any]=Depends(current_user)):
     with closing(db()) as c:
         c.execute("BEGIN IMMEDIATE")
         try:
-            dup=c.execute("SELECT id,status FROM sim_orders WHERE user_id=? AND id=?",(user["id"],oid)).fetchone()
+            dup=c.execute("SELECT id,status FROM sim_orders WHERE user_id=? AND idempotency_key=?",(user["id"],oid)).fetchone()
             if dup: c.commit(); return {"id":dup["id"],"status":dup["status"],"duplicate":True,"simulation_only":True}
             bal=balance_cents(c,user["id"])
             if reserve>bal: raise HTTPException(409,"Insufficient simulated cash: need {:.2f} USD, available {:.2f} USD.".format(dollars(reserve),dollars(bal)))
-            c.execute("INSERT INTO sim_orders VALUES(?,?,?,?,?,?,?,?,'reserved',NULL,NULL,NULL,NULL,?,NULL)",
-                      (oid,user["id"],req.product_name,req.quantity,cost,shipping,fees,reserve,now()))
+            c.execute("INSERT INTO sim_orders VALUES(?,?,?,?,?,?,?,?,'reserved',NULL,NULL,NULL,NULL,?,?,?)",
+                      (str(uuid.uuid4()),user["id"],req.product_name,req.quantity,cost,shipping,fees,reserve,now(),None,oid))
             c.execute("INSERT INTO sim_cash_events VALUES(?,?, 'reserve',?,?,?,?)",(str(uuid.uuid4()),user["id"],reserve,"reserve:"+oid,"Simulated order reserve "+oid,now()))
             c.commit()
         except Exception: c.rollback(); raise
