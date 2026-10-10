@@ -11,7 +11,9 @@ import uuid
 from contextlib import closing
 from datetime import datetime, timezone
 from typing import Any
+from dotenv import load_dotenv
 
+load_dotenv()
 DB_PATH = os.getenv("COMMERCE_DB_PATH", "commerce.db")
 ALLOWED_TASKS = {"product_research", "supplier_due_diligence", "profitability_analysis", "order_reconciliation", "daily_report"}
 
