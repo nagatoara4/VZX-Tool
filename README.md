@@ -12,6 +12,9 @@ A multi-user commerce-operations control plane with isolated accounts, declared 
 - Default loss-stop policy of 30% of the declared cycle capital.
 - 80% reinvestment policy documented for future accounting integration; not yet automatically applied to verified profits.
 - Product opportunity scoring based on demand, competition, margin, supplier reliability, fulfilment fit and compliance risk.
+- New field-agent engine (`agent_engine.py`) computes all-in unit costs, expected margin/ROI, candidate scores and fail-closed order/loss-limit decisions using decimal money arithmetic.
+- Verified-profit alert formatter rejects notifications unless settlement and cost reconciliation are confirmed.
+- Integration readiness registry (`integration_registry.py`) reports missing credentials but deliberately never enables live transactions.
 - Purchase proposal workflow with idempotency keys, approval-required state and per-action cap.
 - Background task queue foundation with a narrow allowlist of non-financial task types.
 - Responsive dashboard served at `/ui`.
@@ -65,13 +68,13 @@ Private endpoints require `Authorization: Bearer <token>`. Never share access to
 
 No live payment adapter or Amazon/AliExpress/Alibaba/shipping API client is connected in this release. Environment variables are placeholders/status indicators only. Credentials alone do not establish country eligibility or API approval.
 
-Before implementation, verify business and country eligibility directly with the chosen provider. A real adapter must validate signed server-to-server webhooks, payment amount/currency, merchant identity, cycle ownership, duplicate event IDs, refunds and disputes before confirming ledger entries. Browser redirects must never credit balances. See [the integration go-live checklist](docs/INTEGRATIONS_AND_GO_LIVE.md).
+Before implementation, verify business and country eligibility directly with the chosen provider. A real adapter must validate signed server-to-server webhooks, payment amount/currency, merchant identity, cycle ownership, duplicate event IDs, refunds and disputes before confirming ledger entries. Browser redirects must never credit balances. See [the integration go-live checklist](docs/INTEGRATIONS_AND_GO_LIVE.md) and the [Field Agent architecture](docs/FIELD_AGENT_ARCHITECTURE.md).
 
 Amazon integration requires approved official SP-API access and seller authorization. Supplier API availability depends on the official platform/program. Do not scrape, bypass verification, or misrepresent location or identity.
 
 ## Agent autonomy and safety
 
-The task queue currently stores allowed requests; it does not autonomously fetch market data or execute financial operations. Next implementation stages are: verified data connectors, durable worker execution, monitoring/alerts, sandbox testing, and tightly scoped execution permissions. Purchases, ads, refunds, listings, contracts, and external commitments require explicit authorization until their controls are proven.
+The task queue currently stores allowed requests; it does not autonomously fetch market data or execute financial operations. Current branch adds a deterministic opportunity engine and a field-agent architecture guide. The queue still stores tasks; it does not yet run an autonomous marketplace worker. Next stages are verified data connectors, durable worker execution, monitoring/alerts, sandbox testing, and tightly scoped execution permissions. Purchases, ads, refunds, listings, contracts, and external commitments require explicit authorization until their controls are proven.
 
 ## Tests
 
