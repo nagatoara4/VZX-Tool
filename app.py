@@ -321,7 +321,9 @@ def decide_proposal(proposal_id: str, req: DecisionRequest, x_admin_key: str | N
 
 
 @app.get("/audit")
-def get_audit(limit: int = 100) -> dict[str, Any]:
+def get_audit(limit: int = 100, x_admin_key: str | None = Header(default=None)) -> dict[str, Any]:
+    """Owner-only audit trail; event details may contain operational and financial metadata."""
+    require_owner(x_admin_key)
     limit = max(1, min(limit, 500))
     with closing(db()) as conn:
         rows = conn.execute("SELECT event, detail, created_at FROM audit ORDER BY rowid DESC LIMIT ?", (limit,)).fetchall()
