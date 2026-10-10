@@ -10,7 +10,7 @@ A risk-controlled foundation for an AI-assisted ecommerce operator. It is design
 - 80% reinvestment policy reserved for realized, cleared, available net profit after liabilities and reserves.
 - Product opportunity scoring with explicit component scores.
 - Purchase proposals with idempotency keys, per-action limits, and approval gates.
-- Simulated supplier/order workflows and an audit trail.
+- A basic audit trail and purchase-proposal workflow (supplier sourcing, marketplace orders, and fulfilment are not implemented yet).
 - API endpoints suitable for a future dashboard and background worker.
 
 ## Quick start
@@ -24,7 +24,7 @@ cp .env.example .env
 uvicorn app:app --reload
 ```
 
-Open http://127.0.0.1:8000/docs for the API.
+Open http://127.0.0.1:8000/docs for the API. Open `dashboard.html` in a browser for the starter control-panel UI; the browser will ask for the local API URL when you use an API action. The API must be running, and owner-only actions require `X-Admin-Key`.
 
 ## Safety defaults
 - `EXECUTION_MODE=simulation` by default.
