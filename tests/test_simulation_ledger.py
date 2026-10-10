@@ -47,13 +47,13 @@ def test_simulation_order_lifecycle_and_profit():
     })
     assert repeated.status_code == 201
     assert repeated.json()["duplicate"] is True
-    settled = client.post("/api/v1/simulation/orders/sim-order-life-001/settle", headers=headers, json={
+    settled = client.post("/api/v1/simulation/orders/" + order.json()["id"] + "/settle", headers=headers, json={
         "sale_price_usd": "80.00", "actual_shipping_usd": "8.00", "actual_fees_usd": "4.00"
     })
     assert settled.status_code == 200, settled.text
     assert settled.json()["total_cost_usd"] == 52.0
     assert settled.json()["net_profit_usd"] == 28.0
-    again = client.post("/api/v1/simulation/orders/sim-order-life-001/settle", headers=headers, json={
+    again = client.post("/api/v1/simulation/orders/" + order.json()["id"] + "/settle", headers=headers, json={
         "sale_price_usd": "80.00", "actual_shipping_usd": "8.00", "actual_fees_usd": "4.00"
     })
     assert again.json()["duplicate"] is True
