@@ -19,6 +19,7 @@ from platform_api import router as platform_router, init_platform_db
 from agent_engine import analyze_opportunity, as_dict
 from agent_worker import init_queue, execution_policy, process_one
 from redotpay_connect import RedotPayError, create_sandbox_checkout
+from simulation_ledger import router as simulation_router, init_simulation_db
 
 load_dotenv()
 
@@ -32,6 +33,7 @@ DEFAULT_ACTION_CAP = float(os.getenv("DEFAULT_ACTION_CAP", "25.00"))
 
 app = FastAPI(title=APP_NAME, version="0.3.0", description="Multi-user risk-controlled commerce control plane. Payment and marketplace execution remain disabled until verified integrations are configured.")
 app.include_router(platform_router)
+app.include_router(simulation_router)
 
 
 def now() -> str:
@@ -75,6 +77,7 @@ def init_db() -> None:
 def startup() -> None:
     init_db()
     init_platform_db()
+    init_simulation_db()
     init_queue()
 
 
