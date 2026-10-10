@@ -4,7 +4,7 @@ WORKDIR /app
 RUN addgroup --system app && adduser --system --ingroup app app && mkdir -p /data && chown -R app:app /app /data
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-COPY app.py platform_api.py agent_worker.py agent_engine.py integration_registry.py provider_adapters.py dashboard.html ./
+COPY app.py platform_api.py agent_worker.py agent_engine.py integration_registry.py provider_adapters.py amazon_catalog.py dashboard.html ./
 RUN chown -R app:app /app
 USER app
 ENV COMMERCE_DB_PATH=/data/commerce.db
