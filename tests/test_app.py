@@ -96,7 +96,8 @@ def test_multi_user_accounts_and_ledgers_are_isolated():
     ledger_a = client.get("/api/v1/ledger", headers=headers_a).json()["entries"]
     ledger_b = client.get("/api/v1/ledger", headers=headers_b).json()["entries"]
     assert len(ledger_a) == len(ledger_b) == 1
-    assert ledger_a[0]["user_id"] != ledger_b[0]["user_id"]
+    assert ledger_a[0]["cycle_id"] != ledger_b[0]["cycle_id"]
+    assert ledger_a[0]["id"] != ledger_b[0]["id"]
     assert ledger_a[0]["status"] == "pending_payment"
     assert account_a["recorded_balance"] == 0
 
