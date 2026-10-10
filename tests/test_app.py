@@ -118,3 +118,20 @@ def test_declared_budget_is_not_spendable_cash():
     })
     assert response.status_code == 409
     assert "confirmed available cash" in response.json()["detail"]
+
+def test_agent_task_queue_is_user_scoped_and_does_not_claim_execution():
+    headers_a = register_and_login("taskalpha@example.com", "Task Alpha")
+    headers_b = register_and_login("taskbravo@example.com", "Task Bravo")
+    created = client.post("/api/v1/tasks", headers=headers_a, json={
+        "task_type": "daily_report",
+        "payload": {"period": "today"}
+    })
+    assert created.status_code == 202
+    task = created.json()
+    assert task["status"] == "queued"
+    assert task["execution_status"] == "queued_only"
+    own = client.get(f"/api/v1/tasks/{task['id']}", headers=headers_a)
+    other = client.get(f"/api/v1/tasks/{task['id']}", headers=headers_b)
+    assert own.status_code == 200
+    assert own.json()["payload"] == {"period": "today"}
+    assert other.status_code == 404
