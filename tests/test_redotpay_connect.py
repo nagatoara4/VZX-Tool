@@ -18,6 +18,8 @@ def test_money_usd_validation():
         money_usd("-1")
     with pytest.raises(ValueError):
         money_usd("NaN")
+    with pytest.raises(ValueError):
+        money_usd("Infinity")
 
 
 def test_live_environment_is_blocked(monkeypatch):
