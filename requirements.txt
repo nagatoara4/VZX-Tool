@@ -5,3 +5,5 @@ pytest>=8.0,<9.0
 httpx>=0.27,<1.0
 python-dotenv>=1.0,<2.0
 email-validator>=2.1,<3.0
+
+botocore>=1.35,<2.0
