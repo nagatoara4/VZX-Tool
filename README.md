@@ -1,59 +1,84 @@
 # Autonomous Commerce OS
 
-A risk-controlled foundation for an AI-assisted ecommerce operator. It is designed to grow from product research into supplier workflows, order operations, and approved platform integrations.
+A multi-user commerce-operations control plane with isolated accounts, declared budgets, a per-user ledger, product opportunity scoring, purchase proposals, and a durable task-queue foundation.
 
-> **Important:** This repository is an MVP/control plane, not a live autonomous money manager. No payment provider, Amazon Seller Central, AliExpress, Alibaba, or shipping account is connected by default. Purchases and money transfers are not executed. Start in simulation mode; connect only official APIs after eligibility, legal, and security review.
+> **Important status:** This is an early-stage application, not a fully autonomous live ecommerce company. Authentication and per-user budget records are implemented, but payment collection, money transfers, Amazon orders/listings, supplier purchases, shipping, and unattended external actions are **disabled**. Do not collect other people's money or promise returns with this MVP.
 
-## Core capabilities
-- Owner-defined, changeable budgets recorded as auditable ledger entries.
-- Risk policy with a loss stop calculated against the initial capital for each funding cycle.
-- 80% reinvestment policy reserved for realized, cleared, available net profit after liabilities and reserves.
-- Product opportunity scoring with explicit component scores.
-- Purchase proposals with idempotency keys, per-action limits, and approval gates.
-- A basic audit trail and purchase-proposal workflow (supplier sourcing, marketplace orders, and fulfilment are not implemented yet).
-- API endpoints suitable for a future dashboard and background worker.
+## Implemented
 
-## Quick start
-Python 3.11+ recommended.
+- Per-user registration/login with PBKDF2 password hashing and signed, expiring bearer tokens.
+- Per-user budget cycles, ledger history, proposal records and basic audit events.
+- Declared budgets remain `pending_payment`; they are not counted as available cash.
+- Default loss-stop policy of 30% of the declared cycle capital.
+- 80% reinvestment policy documented for future accounting integration; not yet automatically applied to verified profits.
+- Product opportunity scoring based on demand, competition, margin, supplier reliability, fulfilment fit and compliance risk.
+- Purchase proposal workflow with idempotency keys, approval-required state and per-action cap.
+- Background task queue foundation with a narrow allowlist of non-financial task types.
+- Responsive dashboard served at `/ui`.
+- OpenAPI docs at `/docs`, tests and GitHub Actions workflow.
+
+## Run locally
+
+Python 3.12 recommended.
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
-uvicorn app:app --reload
 ```
 
-Open http://127.0.0.1:8000/docs for the API. Open `dashboard.html` in a browser for the starter control-panel UI; the browser will ask for the local API URL when you use an API action. The API must be running, and owner-only actions require `X-Admin-Key`.
+Generate secrets:
 
-## Safety defaults
-- `EXECUTION_MODE=simulation` by default.
-- No card, bank, wallet, or marketplace credentials are accepted by this MVP.
-- A proposal cannot spend more than the available unreserved cash, action cap, or current cycle loss limit.
-- Irreversible or regulated actions require owner approval.
-- A loss stop freezes new discretionary spending, not customer support, refunds, legal duties, or fulfilment obligations already accepted.
-- The API is intended for local development. Put it behind authentication, TLS, rate limiting, and a secrets manager before exposing it to a network.
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(48))"
+```
 
-## Budget and accounting rules
-A funding cycle starts when the owner records a deposit. The loss limit is 30% of that cycle's initial capital by default. A new deposit does not silently erase earlier losses; create a new cycle only with an explicit owner action and retain the complete ledger history.
+Put one generated value in `AUTH_SECRET` and a separate generated value in `ADMIN_API_KEY` in `.env`. Keep `.env` private and never commit it.
 
-Reinvestment is calculated from cleared net profit only. Sales revenue is not profit; unsettled marketplace balances and expected refunds are not available cash.
+```bash
+uvicorn app:app --host 127.0.0.1 --port 8000
+```
 
-## Product scoring
-The score combines demand, competition, margin, supplier reliability, fulfilment fit, and compliance risk. Scores are decision support—not verified market data or a promise of sales. Populate inputs from lawful, current sources and keep source timestamps.
+Open:
+- Dashboard: http://127.0.0.1:8000/ui
+- API docs: http://127.0.0.1:8000/docs
+- Health: http://127.0.0.1:8000/health
 
-## Roadmap
-1. Validate seller eligibility, payout rails, tax, customs, and fulfilment from the owner's jurisdiction.
-2. Add authenticated owner dashboard and background task queue.
-3. Add market-data providers and supplier CRM.
-4. Integrate official Amazon SP-API and approved supplier/shipping APIs with least-privilege credentials.
-5. Add payment workflows only through a regulated provider that supports the business and country; never store raw card data.
-6. Run in shadow mode, compare recommendations with real outcomes, then enable tightly capped actions.
+## Multi-user API
+
+- `POST /api/v1/auth/register`
+- `POST /api/v1/auth/login`
+- `GET /api/v1/me`
+- `GET /api/v1/account`
+- `POST /api/v1/budget`
+- `GET /api/v1/ledger`
+- `POST /api/v1/proposals`
+- `GET /api/v1/proposals`
+- `GET /api/v1/integrations`
+
+Private endpoints require `Authorization: Bearer <token>`. Never share access tokens. This MVP does not yet provide email verification, password reset, MFA, or public-production abuse protection.
+
+## Payment and marketplace status
+
+No live payment adapter or Amazon/AliExpress/Alibaba/shipping API client is connected in this release. Environment variables are placeholders/status indicators only. Credentials alone do not establish country eligibility or API approval.
+
+Before implementation, verify business and country eligibility directly with the chosen provider. A real adapter must validate signed server-to-server webhooks, payment amount/currency, merchant identity, cycle ownership, duplicate event IDs, refunds and disputes before confirming ledger entries. Browser redirects must never credit balances. See [the integration go-live checklist](docs/INTEGRATIONS_AND_GO_LIVE.md).
+
+Amazon integration requires approved official SP-API access and seller authorization. Supplier API availability depends on the official platform/program. Do not scrape, bypass verification, or misrepresent location or identity.
+
+## Agent autonomy and safety
+
+The task queue currently stores allowed requests; it does not autonomously fetch market data or execute financial operations. Next implementation stages are: verified data connectors, durable worker execution, monitoring/alerts, sandbox testing, and tightly scoped execution permissions. Purchases, ads, refunds, listings, contracts, and external commitments require explicit authorization until their controls are proven.
 
 ## Tests
+
 ```bash
 pytest -q
 ```
 
-## License
-MIT
+GitHub Actions runs the test suite on pushes to `main` and pull requests. Check the Actions tab for the actual run result.
+
+## Deployment warning
+
+Do not expose this SQLite-based MVP publicly as a financial production service. Before public deployment, migrate to managed PostgreSQL, add HTTPS, rate limits, email verification, MFA, password reset, secret management, database backups, security monitoring, provider webhook verification and independent legal/compliance review. Never store raw card data.
