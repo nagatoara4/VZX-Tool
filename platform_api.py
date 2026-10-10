@@ -23,6 +23,7 @@ from fastapi import APIRouter, Header, HTTPException, Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field, EmailStr, field_validator
 from dotenv import load_dotenv
+from agent_worker import enqueue, get_task, ALLOWED_TASKS
 
 load_dotenv()
 router = APIRouter(prefix="/api/v1", tags=["multi-user platform"])
@@ -168,6 +169,11 @@ class BudgetRequest(BaseModel):
     note: str = Field(default="Owner-declared budget", min_length=1, max_length=240)
 
 
+class TaskRequest(BaseModel):
+    task_type: Literal["product_research", "supplier_due_diligence", "profitability_analysis", "order_reconciliation", "daily_report"]
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
 class ProposalRequest(BaseModel):
     kind: Literal["sample_purchase", "inventory_purchase", "advertising", "tooling", "other"]
     amount: float = Field(gt=0, le=1_000_000)
@@ -295,6 +301,28 @@ def list_proposals(user: dict[str, Any] = Depends(current_user), limit: int = 10
     with closing(conn()) as c:
         rows=c.execute("SELECT id,kind,amount,rationale,status,created_at FROM user_proposals WHERE user_id=? ORDER BY created_at DESC LIMIT ?",(user["id"],limit)).fetchall()
     return {"proposals":[dict(r) for r in rows]}
+
+
+@router.post("/tasks", status_code=202)
+def create_task(req: TaskRequest, user: dict[str, Any] = Depends(current_user)) -> dict[str, Any]:
+    # Queue-only: no task is represented as completed until an actual worker processes it.
+    task = enqueue(user["id"], req.task_type, req.payload)
+    audit(user["id"], "agent_task_queued", {"task_id": task["id"], "task_type": req.task_type})
+    return {**task, "execution_status": "queued_only", "message": "Task stored. A live research worker and data connectors are not yet enabled."}
+
+
+@router.get("/tasks/{task_id}")
+def read_task(task_id: str, user: dict[str, Any] = Depends(current_user)) -> dict[str, Any]:
+    task = get_task(user["id"], task_id)
+    if not task:
+        raise HTTPException(404, "Task not found.")
+    task["payload"] = json.loads(task["payload"])
+    if task.get("result"):
+        try:
+            task["result"] = json.loads(task["result"])
+        except (ValueError, TypeError):
+            pass
+    return task
 
 
 @router.get("/integrations")
