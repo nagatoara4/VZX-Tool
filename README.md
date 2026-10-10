@@ -18,11 +18,13 @@ A multi-user commerce-operations control plane with isolated accounts, declared 
 - Verified-profit alert formatter rejects notifications unless settlement and cost reconciliation are confirmed.
 - Integration readiness registry (`integration_registry.py`) reports missing credentials but deliberately never enables live transactions.
 - Provider adapter contracts (`provider_adapters.py`) validate USD amounts, report integration readiness and fail closed for checkout, webhook verification and marketplace purchases until official provider-specific adapters are approved and implemented.
+- Read-only Amazon SP-API catalog search connector (`amazon_catalog.py`), exposed through owner-protected `POST /agent/research/amazon-catalog`; it requires approved developer/seller credentials and explicit opt-in, and does not place orders.
+- Container deployment guide, non-root Docker image, healthcheck, `.dockerignore`, and persistent-volume Compose setup.
 - `GET /api/v1/integrations` includes provider readiness details without revealing secret values.
 - Purchase proposal workflow with idempotency keys, approval-required state and per-action cap.
 - Background task queue foundation with a narrow allowlist of non-financial task types.
 - Responsive dashboard served at `/ui`.
-- OpenAPI docs at `/docs`, tests and GitHub Actions workflow.
+- OpenAPI docs at `/docs`, tests and GitHub Actions workflow. See [container deployment](docs/DEPLOYMENT.md).
 
 ## Run locally
 
@@ -70,7 +72,7 @@ Private endpoints require `Authorization: Bearer <token>`. Never share access to
 
 ## Payment and marketplace status
 
-No production-ready live payment adapter or Amazon/AliExpress/Alibaba/shipping API client is connected in this release. Provider adapter contracts are intentionally fail-closed and do not simulate successful payment or purchase results. Environment variables are placeholders/status indicators only. Credentials alone do not establish country eligibility or API approval. Do not enable any `*_LIVE_ENABLED` flag until the provider-specific adapter, signed webhook validation, idempotent reconciliation, sandbox tests and compliance review are complete.
+No production-ready live payment adapter or Amazon ordering/AliExpress/Alibaba/shipping API client is connected in this release. Amazon catalog lookup is read-only and requires approved SP-API credentials. Provider adapter contracts are intentionally fail-closed and do not simulate successful payment or purchase results. Environment variables are placeholders/status indicators only. Credentials alone do not establish country eligibility or API approval. Do not enable any `*_LIVE_ENABLED` flag until the provider-specific adapter, signed webhook validation, idempotent reconciliation, sandbox tests and compliance review are complete.
 
 Before implementation, verify business and country eligibility directly with the chosen provider. A real adapter must validate signed server-to-server webhooks, payment amount/currency, merchant identity, cycle ownership, duplicate event IDs, refunds and disputes before confirming ledger entries. Browser redirects must never credit balances. See [the integration go-live checklist](docs/INTEGRATIONS_AND_GO_LIVE.md) and the [Field Agent architecture](docs/FIELD_AGENT_ARCHITECTURE.md).
 
