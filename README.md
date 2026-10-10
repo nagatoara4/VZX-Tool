@@ -55,6 +55,8 @@ Open:
 - `GET /api/v1/ledger`
 - `POST /api/v1/proposals`
 - `GET /api/v1/proposals`
+- `POST /api/v1/tasks`
+- `GET /api/v1/tasks/{task_id}`
 - `GET /api/v1/integrations`
 
 Private endpoints require `Authorization: Bearer <token>`. Never share access tokens. This MVP does not yet provide email verification, password reset, MFA, or public-production abuse protection.
