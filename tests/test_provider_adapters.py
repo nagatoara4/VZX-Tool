@@ -35,8 +35,11 @@ def test_amazon_catalog_search_disabled_without_opt_in(monkeypatch):
         search_catalog("USB cable")
 
 
-def test_amazon_catalog_search_disabled_without_opt_in(monkeypatch):
-    from amazon_catalog import AmazonNotReady, search_catalog
-    monkeypatch.setenv("AMAZON_SP_API_ENABLE_READS", "false")
-    with pytest.raises(AmazonNotReady):
-        search_catalog("USB cable")
+
+
+def test_redotpay_live_checkout_flag_never_enables_production(monkeypatch):
+    from redotpay_connect import RedotPayError, create_sandbox_checkout
+    monkeypatch.setenv("REDOTPAY_ENV", "production")
+    monkeypatch.setenv("REDOTPAY_LIVE_ENABLED", "true")
+    with pytest.raises(RedotPayError, match="intentionally blocked"):
+        create_sandbox_checkout(user_id="user-1", order_id="VZX123456", amount_usd="10")
