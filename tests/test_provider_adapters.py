@@ -33,3 +33,10 @@ def test_amazon_catalog_search_disabled_without_opt_in(monkeypatch):
     monkeypatch.setenv("AMAZON_SP_API_ENABLE_READS", "false")
     with pytest.raises(AmazonNotReady):
         search_catalog("USB cable")
+
+
+def test_amazon_catalog_search_disabled_without_opt_in(monkeypatch):
+    from amazon_catalog import AmazonNotReady, search_catalog
+    monkeypatch.setenv("AMAZON_SP_API_ENABLE_READS", "false")
+    with pytest.raises(AmazonNotReady):
+        search_catalog("USB cable")
