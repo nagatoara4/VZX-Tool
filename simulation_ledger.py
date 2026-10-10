@@ -94,7 +94,7 @@ def list_orders(user:dict[str,Any]=Depends(current_user)):
 @router.post("/orders",status_code=201)
 def create_order(req:SimOrderRequest,user:dict[str,Any]=Depends(current_user)):
     cost=cents(req.product_cost_usd)*req.quantity; shipping=cents(req.shipping_budget_usd); fees=cents(req.fee_budget_usd)
-    reserve=cost+shipping+fees; key=req.idempotency_key
+    reserve=cost+shipping+fees; key=req.idempotency_key; order_id=str(uuid.uuid4())
     with closing(db()) as c:
         c.execute("BEGIN IMMEDIATE")
         try:
@@ -103,12 +103,12 @@ def create_order(req:SimOrderRequest,user:dict[str,Any]=Depends(current_user)):
             bal=balance_cents(c,user["id"])
             if reserve>bal: raise HTTPException(409,"Insufficient simulated cash: need {:.2f} USD, available {:.2f} USD.".format(dollars(reserve),dollars(bal)))
             c.execute("INSERT INTO sim_orders VALUES(?,?,?,?,?,?,?,?,'reserved',NULL,NULL,NULL,NULL,?,?,?)",
-                      (str(uuid.uuid4()),user["id"],req.product_name,req.quantity,cost,shipping,fees,reserve,now(),None,key))
+                      (order_id,user["id"],req.product_name,req.quantity,cost,shipping,fees,reserve,now(),None,key))
             c.execute("INSERT INTO sim_cash_events VALUES(?,?, 'reserve',?,?,?,?)",(str(uuid.uuid4()),user["id"],reserve,"reserve:"+str(uuid.uuid4()),"Simulated order reserve",now()))
             c.commit()
         except Exception: c.rollback(); raise
         bal=balance_cents(c,user["id"])
-    return {"id":c.execute("SELECT id FROM sim_orders WHERE user_id=? AND idempotency_key=?",(user["id"],key)).fetchone()["id"],"status":"reserved","simulation_only":True,"reserved_usd":dollars(reserve),"available_balance_usd":dollars(bal),
+    return {"id":order_id,"status":"reserved","simulation_only":True,"reserved_usd":dollars(reserve),"available_balance_usd":dollars(bal),
             "message":"Reserved in simulation only; no supplier or marketplace was contacted."}
 
 @router.post("/orders/{order_id}/settle")
