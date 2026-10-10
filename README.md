@@ -1,113 +1,110 @@
-# Autonomous Commerce OS
+# VZX-Tool
 
-A multi-user commerce-operations control plane with isolated accounts, declared budgets, a per-user ledger, product opportunity scoring, purchase proposals, and a durable task-queue foundation.
+**VZX-Tool** is a risk-controlled commerce research and operations prototype for evaluating resale opportunities, tracking user-scoped tasks, and preparing provider integrations without pretending that simulated funds are real money.
 
-> **Important status:** This is an early-stage application, not a fully autonomous live ecommerce company. Authentication and per-user budget records are implemented, but payment collection, money transfers, Amazon orders/listings, supplier purchases, shipping, and unattended external actions are **disabled**. Do not collect other people's money or promise returns with this MVP.
+> **Current release: research + simulation.** Live customer-fund custody, card spending, marketplace purchasing, Amazon listings, and automatic reinvestment are not enabled. RedotPay Connect is implemented as a sandbox hosted-checkout request only. Do not use this repository as a production financial service.
 
-## Implemented
+## Capabilities
 
-- Per-user registration/login with PBKDF2 password hashing and signed, expiring bearer tokens.
-- Per-user budget cycles, ledger history, proposal records and basic audit events.
-- Declared budgets remain `pending_payment`; they are not counted as available cash.
-- Default loss-stop policy of 30% of the declared cycle capital.
-- 80% reinvestment policy documented for future accounting integration; not yet automatically applied to verified profits.
-- Product opportunity scoring based on demand, competition, margin, supplier reliability, fulfilment fit and compliance risk.
-- Field-agent engine (`agent_engine.py`) computes all-in unit costs, expected margin/ROI, candidate scores and fail-closed order/loss-limit decisions using decimal money arithmetic.
-- `POST /agent/analyze` ranks up to 100 user-supplied candidates; it does not fetch live market data.
-- Owner-protected `POST /agent/worker/run-once` processes one queued task in analysis-only mode; profitability tasks can rank supplied candidate records, while unsupported live tasks fail closed.
-- Verified-profit alert formatter rejects notifications unless settlement and cost reconciliation are confirmed.
-- Integration readiness registry (`integration_registry.py`) reports missing credentials but deliberately never enables live transactions.
-- Provider adapter contracts (`provider_adapters.py`) validate USD amounts, report integration readiness and fail closed for checkout, webhook verification and marketplace purchases until official provider-specific adapters are approved and implemented.
-- Read-only Amazon SP-API catalog search connector (`amazon_catalog.py`), exposed through owner-protected `POST /agent/research/amazon-catalog`; it requires approved developer/seller credentials and explicit opt-in, and does not place orders.
-- Container deployment guide, non-root Docker image, healthcheck, `.dockerignore`, and persistent-volume Compose setup.
-- `GET /api/v1/integrations` includes provider readiness details without revealing secret values.
-- Purchase proposal workflow with idempotency keys, approval-required state and per-action cap.
-- Background task queue foundation with a narrow allowlist of non-financial task types.
-- Responsive dashboard served at `/ui`.
-- OpenAPI docs at `/docs`, tests and GitHub Actions workflow. See [container deployment](docs/DEPLOYMENT.md).
+- FastAPI control plane with an HTML dashboard.
+- Account/session APIs, scoped task queue, proposals, audit records, and budget-cycle primitives.
+- Deterministic resale opportunity scoring from candidate data supplied to the API.
+- Owner-protected Amazon SP-API catalog research (read-only, requires approved Amazon credentials and explicit opt-in).
+- RedotPay Connect Open API v2 sandbox checkout creation with RSA request signing.
+- Automated tests, Docker image build, and container health smoke test in GitHub Actions.
+- Safe defaults: no live payment or marketplace execution; owner-only operations fail closed if `ADMIN_API_KEY` is missing.
 
-## Run locally
+## Repository
 
-Python 3.12 recommended.
+- Application: `app.py`
+- Account/task API: `platform_api.py`
+- Opportunity engine: `agent_engine.py`
+- Analysis-only worker and queue: `agent_worker.py`
+- RedotPay sandbox checkout: `redotpay_connect.py`
+- Amazon read-only catalog connector: `amazon_catalog.py`
+- Provider readiness contracts: `provider_adapters.py`
+- Deployment guide: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)
+- RedotPay sandbox guide: [`docs/REDOTPAY_SANDBOX.md`](docs/REDOTPAY_SANDBOX.md)
+- Integration go-live gates: [`docs/INTEGRATIONS_AND_GO_LIVE.md`](docs/INTEGRATIONS_AND_GO_LIVE.md)
+- Execution contract: [`docs/EXECUTION_CONTRACT.md`](docs/EXECUTION_CONTRACT.md)
+
+## Quick start (local / simulation)
+
+Requires Python 3.12+.
 
 ```bash
+git clone https://github.com/nagatoara4/VZX-Tool.git
+cd VZX-Tool
 python -m venv .venv
 source .venv/bin/activate
+python -m pip install --upgrade pip
 pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Generate secrets:
+Generate unique local secrets and place them in `.env` (never commit that file):
 
 ```bash
-python -c "import secrets; print(secrets.token_urlsafe(48))"
+python -c "import secrets; print('ADMIN_API_KEY=' + secrets.token_urlsafe(48)); print('AUTH_SECRET=' + secrets.token_urlsafe(48))"
 ```
 
-Put one generated value in `AUTH_SECRET` and a separate generated value in `ADMIN_API_KEY` in `.env`. Keep `.env` private and never commit it.
+Set `ADMIN_API_KEY` and `AUTH_SECRET` in `.env`, then start:
 
 ```bash
 uvicorn app:app --host 127.0.0.1 --port 8000
 ```
 
-Open:
-- Dashboard: http://127.0.0.1:8000/ui
-- API docs: http://127.0.0.1:8000/docs
-- Health: http://127.0.0.1:8000/health
+Open [http://127.0.0.1:8000](http://127.0.0.1:8000). Keep the service bound to localhost while testing. Never expose it publicly without the production checklist in `docs/DEPLOYMENT.md`.
 
-## Multi-user API
-
-- `POST /api/v1/auth/register`
-- `POST /api/v1/auth/login`
-- `GET /api/v1/me`
-- `GET /api/v1/account`
-- `POST /api/v1/budget`
-- `GET /api/v1/ledger`
-- `POST /api/v1/proposals`
-- `GET /api/v1/proposals`
-- `POST /api/v1/tasks`
-- `GET /api/v1/tasks/{task_id}`
-- `GET /api/v1/integrations`
-
-Private endpoints require `Authorization: Bearer <token>`. Never share access tokens. This MVP does not yet provide email verification, password reset, MFA, or public-production abuse protection.
-
-## Payment and marketplace status
-
-No production-ready live payment adapter or Amazon ordering/AliExpress/Alibaba/shipping API client is connected in this release. Amazon catalog lookup is read-only and requires approved SP-API credentials. Provider adapter contracts are intentionally fail-closed and do not simulate successful payment or purchase results. Environment variables are placeholders/status indicators only. Credentials alone do not establish country eligibility or API approval. Do not enable any `*_LIVE_ENABLED` flag until the provider-specific adapter, signed webhook validation, idempotent reconciliation, sandbox tests and compliance review are complete.
-
-Before implementation, verify business and country eligibility directly with the chosen provider. A real adapter must validate signed server-to-server webhooks, payment amount/currency, merchant identity, cycle ownership, duplicate event IDs, refunds and disputes before confirming ledger entries. Browser redirects must never credit balances. See [the integration go-live checklist](docs/INTEGRATIONS_AND_GO_LIVE.md) and the [Field Agent architecture](docs/FIELD_AGENT_ARCHITECTURE.md).
-
-Amazon integration requires approved official SP-API access and seller authorization. Supplier API availability depends on the official platform/program. Do not scrape, bypass verification, or misrepresent location or identity.
-
-## Agent autonomy and safety
-
-The worker can process queued profitability-analysis tasks when the payload contains complete candidate data. It does not autonomously fetch market data or execute financial operations. For local testing, start the app with secure environment variables and call `POST /agent/worker/run-once` with `X-Admin-Key`; one task is processed per call. Current branch adds a deterministic opportunity engine and a field-agent architecture guide. The queue still stores tasks; it does not yet run an autonomous marketplace worker. Next stages are verified data connectors, durable worker execution, monitoring/alerts, sandbox testing, and tightly scoped execution permissions. Purchases, ads, refunds, listings, contracts, and external commitments require explicit authorization until their controls are proven.
-
-## Tests
+## Docker
 
 ```bash
-pytest -q
+cp .env.example .env
+# Edit .env and set strong unique ADMIN_API_KEY and AUTH_SECRET values.
+docker compose up --build
 ```
 
-GitHub Actions runs the test suite on pushes to `main` and pull requests. Check the Actions tab for the actual run result.
+Compose binds to `127.0.0.1:8000` by default and persists app data in a named volume. Review the compose file and secret handling before deploying on any server.
 
-## Deployment warning
+## Automated validation
 
-Do not expose this SQLite-based MVP publicly as a financial production service. Before public deployment, migrate to managed PostgreSQL, add HTTPS, rate limits, email verification, MFA, password reset, secret management, database backups, security monitoring, provider webhook verification and independent legal/compliance review. Never store raw card data.
+GitHub Actions runs:
 
+1. dependency installation,
+2. `pytest -q`,
+3. Docker image build,
+4. container startup and `/health` smoke test.
 
-## RedotPay Connect sandbox (new)
+See [the latest Actions runs](https://github.com/nagatoara4/VZX-Tool/actions). A passing CI run validates code tests and the container smoke test; it does **not** prove that RedotPay or Amazon credentials are approved or that a provider-backed sandbox transaction succeeded.
 
-A sandbox-only, owner-protected endpoint is available at `POST /agent/funding/redotpay/sandbox-checkout`. It creates a hosted checkout order for a user and returns it as `pending_payment`; it never credits the user's ledger. Configure `REDOTPAY_ENV=sandbox`, `REDOTPAY_APP_KEY`, `REDOTPAY_PRIVATE_KEY_PATH`, and `REDOTPAY_KEY_VERSION` using provider-issued sandbox credentials. The endpoint requires `X-Admin-Key` and is not a public end-user funding API.
+## RedotPay Connect sandbox
 
-**Important:** RedotPay Connect checkout is a merchant payment-collection flow. It does not give the agent spending access to a user's card and does not authorize Amazon purchases. Live RedotPay mode is intentionally blocked in this release. Real sandbox E2E validation requires your own RedotPay sandbox credentials and a test callback; unit tests are not a claim of provider acceptance. See [RedotPay sandbox guide](docs/REDOTPAY_SANDBOX.md).
+The owner-protected endpoint `POST /agent/funding/redotpay/sandbox-checkout` creates a hosted checkout order in the RedotPay sandbox. It returns `pending_payment`, `payment_confirmed: false`, and `ledger_credit_allowed: false`.
 
-Example request (local sandbox only):
+Required sandbox settings:
 
-```bash
-curl -X POST http://127.0.0.1:8000/agent/funding/redotpay/sandbox-checkout \
-  -H "Content-Type: application/json" \
-  -H "X-Admin-Key: $ADMIN_API_KEY" \
-  -d '{"user_id":"demo-user","order_id":"VZX123456","amount_usd":10.00}'
-```
+- `REDOTPAY_ENV=sandbox`
+- `REDOTPAY_APP_KEY`
+- `REDOTPAY_PRIVATE_KEY_PATH`
+- `REDOTPAY_KEY_VERSION`
 
-A returned checkout URL is only a pending payment session. Do not add funds to a user's available balance until signed callback verification, final provider reconciliation, exact user/order/amount/currency matching, and idempotency have been implemented and reviewed.
+Use provider-issued sandbox credentials and a merchant public key registered in RedotPay's developer console. Store the private key outside GitHub. Read [the complete sandbox guide](docs/REDOTPAY_SANDBOX.md) first.
+
+**A checkout URL is not proof of payment.** Before any future ledger credit, the backend needs a deployed signed webhook endpoint, final-status reconciliation, strict order/user/USD amount/currency matching, replay protection, and idempotent ledger posting. These production crediting operations are not implemented here. A real end-to-end sandbox test still requires provider-issued sandbox credentials and an observed test callback.
+
+## Amazon resale
+
+The current Amazon connector is catalog research only. It requires approved Amazon SP-API/seller access and is disabled by default. It does not place purchase orders, list products, handle customer orders, or guarantee profit. Validate landed cost, fees, taxes, customs, returns, delivery, marketplace policies, and seller eligibility before making business decisions.
+
+## Financial and security boundaries
+
+- User-entered budgets and pending funding requests are not verified money.
+- Do not collect or store raw card numbers, CVVs, card passwords, or payment account credentials.
+- Do not pool users' funds or allow one user's balance to be spent for another user.
+- Never enable production payment processing without written provider approval for the business model and jurisdiction.
+- Never enable automatic Amazon purchasing until the official access, user-fund authorization, transaction controls, reconciliation, refunds, and legal/compliance requirements are implemented and reviewed.
+- SQLite is suitable for local development, not a concurrent public financial service. Production requires a managed database, migrations, backups, observability, secret management, rate limiting, account recovery, MFA, and independent security review.
+
+## License
+
+See [LICENSE](LICENSE).
