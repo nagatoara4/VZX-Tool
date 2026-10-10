@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import os
 import sqlite3
@@ -12,6 +13,9 @@ from typing import Any, Literal
 
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field, field_validator
+from dotenv import load_dotenv
+
+load_dotenv()
 
 APP_NAME = "Autonomous Commerce OS"
 DB_PATH = os.getenv("COMMERCE_DB_PATH", "commerce.db")
@@ -76,7 +80,7 @@ def require_owner(x_admin_key: str | None) -> None:
     # Safe local-only default: if no key is configured, mutating endpoints are disabled.
     if not ADMIN_API_KEY:
         raise HTTPException(503, "Owner actions disabled: set ADMIN_API_KEY in the environment.")
-    if not x_admin_key or not hashlib.sha256(x_admin_key.encode()).digest() == hashlib.sha256(ADMIN_API_KEY.encode()).digest():
+    if not x_admin_key or not hmac.compare_digest(x_admin_key, ADMIN_API_KEY):
         raise HTTPException(401, "Invalid owner API key.")
 
 
@@ -273,6 +277,9 @@ def create_proposal(req: ProposalRequest, x_admin_key: str | None = Header(defau
             raise HTTPException(409, "Loss limit reached. Discretionary actions are frozen.")
         if req.amount > totals["cash_available"]:
             raise HTTPException(409, "Proposal exceeds available cash.")
+        loss_remaining = max(0.0, float(cycle["loss_limit"]) - loss)
+        if req.amount > loss_remaining:
+            raise HTTPException(409, f"Proposal exceeds remaining loss budget of {loss_remaining:.2f}.")
         if req.amount > DEFAULT_ACTION_CAP:
             raise HTTPException(409, f"Proposal exceeds per-action cap of {DEFAULT_ACTION_CAP:.2f}.")
         status = "pending"  # Approval always required in MVP; execution is not connected.
