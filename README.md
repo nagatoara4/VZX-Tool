@@ -93,3 +93,21 @@ GitHub Actions runs the test suite on pushes to `main` and pull requests. Check 
 ## Deployment warning
 
 Do not expose this SQLite-based MVP publicly as a financial production service. Before public deployment, migrate to managed PostgreSQL, add HTTPS, rate limits, email verification, MFA, password reset, secret management, database backups, security monitoring, provider webhook verification and independent legal/compliance review. Never store raw card data.
+
+
+## RedotPay Connect sandbox (new)
+
+A sandbox-only, owner-protected endpoint is available at `POST /agent/funding/redotpay/sandbox-checkout`. It creates a hosted checkout order for a user and returns it as `pending_payment`; it never credits the user's ledger. Configure `REDOTPAY_ENV=sandbox`, `REDOTPAY_APP_KEY`, `REDOTPAY_PRIVATE_KEY_PATH`, and `REDOTPAY_KEY_VERSION` using provider-issued sandbox credentials. The endpoint requires `X-Admin-Key` and is not a public end-user funding API.
+
+**Important:** RedotPay Connect checkout is a merchant payment-collection flow. It does not give the agent spending access to a user's card and does not authorize Amazon purchases. Live RedotPay mode is intentionally blocked in this release. Real sandbox E2E validation requires your own RedotPay sandbox credentials and a test callback; unit tests are not a claim of provider acceptance. See [RedotPay sandbox guide](docs/REDOTPAY_SANDBOX.md).
+
+Example request (local sandbox only):
+
+```bash
+curl -X POST http://127.0.0.1:8000/agent/funding/redotpay/sandbox-checkout \
+  -H "Content-Type: application/json" \
+  -H "X-Admin-Key: $ADMIN_API_KEY" \
+  -d '{"user_id":"demo-user","order_id":"VZX123456","amount_usd":10.00}'
+```
+
+A returned checkout URL is only a pending payment session. Do not add funds to a user's available balance until signed callback verification, final provider reconciliation, exact user/order/amount/currency matching, and idempotency have been implemented and reviewed.

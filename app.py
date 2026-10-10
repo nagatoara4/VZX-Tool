@@ -18,6 +18,7 @@ from dotenv import load_dotenv
 from platform_api import router as platform_router, init_platform_db
 from agent_engine import analyze_opportunity, as_dict
 from agent_worker import init_queue, execution_policy, process_one
+from redotpay_connect import RedotPayError, create_sandbox_checkout
 
 load_dotenv()
 
@@ -336,6 +337,24 @@ class OpportunityAnalysisRequest(BaseModel):
 class AmazonCatalogRequest(BaseModel):
     keywords: str = Field(min_length=1, max_length=200)
     limit: int = Field(default=10, ge=1, le=20)
+
+
+class RedotPaySandboxCheckoutRequest(BaseModel):
+    user_id: str = Field(min_length=1, max_length=32)
+    order_id: str = Field(min_length=6, max_length=32)
+    amount_usd: float = Field(gt=0, le=1_000_000)
+
+
+@app.post("/agent/funding/redotpay/sandbox-checkout")
+def redotpay_sandbox_checkout(req: RedotPaySandboxCheckoutRequest, x_admin_key: str | None = Header(default=None)) -> dict[str, Any]:
+    """Owner-only sandbox checkout creation; this does not confirm payment or credit a ledger."""
+    require_owner(x_admin_key)
+    try:
+        return create_sandbox_checkout(user_id=req.user_id, order_id=req.order_id, amount_usd=req.amount_usd)
+    except RedotPayError as exc:
+        raise HTTPException(503, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
 
 
 @app.post("/agent/research/amazon-catalog")
