@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import FastAPI, Header, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field, field_validator
 from dotenv import load_dotenv
 
@@ -168,6 +169,12 @@ class DecisionRequest(BaseModel):
 @app.get("/")
 def root() -> dict[str, Any]:
     return {"name": APP_NAME, "version": "0.1.0", "mode": EXECUTION_MODE, "status": "running", "external_execution_connected": False}
+
+
+@app.get("/ui", include_in_schema=False)
+def dashboard_ui() -> FileResponse:
+    """Serve the dashboard from the same origin as the API to avoid file:// CORS issues."""
+    return FileResponse(Path(__file__).with_name("dashboard.html"))
 
 
 @app.get("/health")
