@@ -1,5 +1,9 @@
 import os
 import tempfile
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 # Isolated database and test-only signing secret; never use these values in production.
 os.environ["COMMERCE_DB_PATH"] = os.path.join(tempfile.gettempdir(), f"commerce-os-tests-{os.getpid()}.db")
