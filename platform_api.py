@@ -25,6 +25,7 @@ from pydantic import BaseModel, Field, EmailStr, field_validator
 from dotenv import load_dotenv
 from agent_worker import enqueue, get_task, ALLOWED_TASKS
 from integration_registry import integration_status as get_integration_status
+from provider_adapters import readiness as provider_readiness
 
 load_dotenv()
 router = APIRouter(prefix="/api/v1", tags=["multi-user platform"])
@@ -336,4 +337,4 @@ def integrations(user: dict[str, Any] = Depends(current_user)) -> dict[str, Any]
       "aliexpress_api_configured": bool(os.getenv("ALIEXPRESS_APP_KEY") and os.getenv("ALIEXPRESS_APP_SECRET")),
       "alibaba_api_configured": bool(os.getenv("ALIBABA_APP_KEY") and os.getenv("ALIBABA_APP_SECRET")),
     }
-    return {"providers":flags,"readiness":get_integration_status(),"live_execution_enabled":False,"message":"Credentials alone do not prove country eligibility or grant API access. Integration remains disabled until sandbox tests, webhook verification, account approval, and compliance checks pass."}
+    return {"providers":flags,"readiness":get_integration_status(),"adapter_readiness":[provider_readiness(name).__dict__ for name in ("redotpay","stripe","paypal","amazon_sp_api","aliexpress","alibaba")],"live_execution_enabled":False,"message":"Credentials alone do not prove country eligibility or grant API access. Integration remains disabled until sandbox tests, webhook verification, account approval, and compliance checks pass."}
