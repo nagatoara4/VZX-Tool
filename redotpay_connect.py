@@ -32,9 +32,10 @@ def money_usd(value: Any) -> str:
         amount = Decimal(str(value))
     except (InvalidOperation, TypeError, ValueError) as exc:
         raise ValueError("Invalid USD amount") from exc
-    if not amount.is_finite() or amount <= 0 or amount > Decimal("1000000"):
-        raise ValueError("USD amount must be finite and between 0.01 and 1,000,000")
-    return format(amount.quantize(Decimal("0.01")), "f")
+    rounded = amount.quantize(Decimal("0.01"))
+    if not amount.is_finite() or rounded < Decimal("0.01") or amount > Decimal("10000"):
+        raise ValueError("USD amount must round to at least 0.01 and not exceed 10,000.00")
+    return format(rounded, "f")
 
 
 def _private_key(path: str):
