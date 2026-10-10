@@ -17,7 +17,7 @@ class IntegrationStatus:
 PROVIDERS = {
     "stripe": ("payments", ("STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET")),
     "paypal": ("payments", ("PAYPAL_CLIENT_ID", "PAYPAL_CLIENT_SECRET", "PAYPAL_WEBHOOK_ID")),
-    "amazon_sp_api": ("marketplace", ("AMAZON_SP_API_CLIENT_ID", "AMAZON_SP_API_CLIENT_SECRET", "AMAZON_SP_API_REFRESH_TOKEN")),
+    "amazon_sp_api": ("marketplace", ("AMAZON_SP_API_LWA_CLIENT_ID", "AMAZON_SP_API_LWA_CLIENT_SECRET", "AMAZON_SP_API_REFRESH_TOKEN")),
     "aliexpress": ("supplier", ("ALIEXPRESS_APP_KEY", "ALIEXPRESS_APP_SECRET")),
     "alibaba": ("supplier", ("ALIBABA_APP_KEY", "ALIBABA_APP_SECRET")),
 }
