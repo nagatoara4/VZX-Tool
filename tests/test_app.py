@@ -187,9 +187,16 @@ def test_worker_processes_profitability_task_as_analysis_only():
         }
     })
     assert queued.status_code == 202
-    ran = client.post("/agent/worker/run-once", headers=HEADERS)
-    assert ran.status_code == 200, ran.text
-    status = client.get(f"/api/v1/tasks/{queued.json()['id']}", headers=headers)
+    # Earlier tests may have left queue-only reporting tasks; drain a bounded number
+    # of jobs until this exact task has been processed.
+    task_id = queued.json()["id"]
+    status = client.get(f"/api/v1/tasks/{task_id}", headers=headers)
+    for _ in range(30):
+        if status.json()["status"] != "queued":
+            break
+        ran = client.post("/agent/worker/run-once", headers=HEADERS)
+        assert ran.status_code == 200, ran.text
+        status = client.get(f"/api/v1/tasks/{task_id}", headers=headers)
     assert status.status_code == 200
     assert status.json()["status"] == "completed"
     assert status.json()["result"]["execution"] == "disabled"
